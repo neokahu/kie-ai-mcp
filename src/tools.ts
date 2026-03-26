@@ -63,6 +63,154 @@ export const imageTools = {
     },
   },
 
+  // --- Nano Banana Pro (Google Gemini) ---
+  nano_banana_pro_image: {
+    name: "nano_banana_pro_image",
+    description:
+      "Generate and edit images using Nano Banana Pro. Supports text-to-image with up to 10,000 character prompts, image editing with up to 8 reference images, 4K output. Pricing: 8 credits/1K, 12/2K, 18/4K.",
+    model: "nano-banana-pro",
+    schema: {
+      prompt: z
+        .string()
+        .max(10000)
+        .describe("Text prompt for image generation or editing"),
+      aspect_ratio: z
+        .enum([
+          "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9",
+          "21:9", "auto",
+        ])
+        .default("1:1")
+        .describe("Aspect ratio"),
+      resolution: z
+        .enum(["1K", "2K", "4K"])
+        .default("1K")
+        .describe("Output resolution"),
+      output_format: z
+        .enum(["png", "jpg"])
+        .default("png")
+        .describe("Output format"),
+      image_input: z
+        .array(z.string().url())
+        .max(8)
+        .optional()
+        .describe("Reference image URLs for editing mode (up to 8)"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      const input: Record<string, unknown> = { prompt: params.prompt };
+      if (params.aspect_ratio) input.aspect_ratio = params.aspect_ratio;
+      if (params.resolution) input.resolution = params.resolution;
+      if (params.output_format) input.output_format = params.output_format;
+      if (params.image_input) input.image_input = params.image_input;
+      return input;
+    },
+  },
+
+  // --- Nano Banana Edit ---
+  nano_banana_edit: {
+    name: "nano_banana_edit",
+    description:
+      "Edit images using Nano Banana Edit. Requires at least one input image and a prompt describing the edit. Supports up to 10 reference images.",
+    model: "google/nano-banana-edit",
+    schema: {
+      prompt: z
+        .string()
+        .max(5000)
+        .describe("Prompt describing the desired edit"),
+      image_urls: z
+        .array(z.string().url())
+        .min(1)
+        .max(10)
+        .describe("Input image URLs for editing (up to 10)"),
+      output_format: z
+        .enum(["png", "jpeg"])
+        .default("png")
+        .describe("Output format"),
+      image_size: z
+        .enum(["1:1", "9:16", "16:9", "3:4", "4:3", "3:2", "2:3", "5:4", "4:5", "21:9", "auto"])
+        .default("1:1")
+        .describe("Aspect ratio of the output image"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      const input: Record<string, unknown> = {
+        prompt: params.prompt,
+        image_urls: params.image_urls,
+      };
+      if (params.output_format) input.output_format = params.output_format;
+      if (params.image_size) input.image_size = params.image_size;
+      return input;
+    },
+  },
+
+  // --- Google Imagen 4 ---
+  google_imagen4: {
+    name: "google_imagen4",
+    description:
+      "Generate images using Google Imagen 4 Ultra. High-quality text-to-image generation with negative prompts and seed support. Uses standard task endpoint.",
+    model: "google/imagen4",
+    schema: {
+      prompt: z
+        .string()
+        .max(5000)
+        .describe("Text prompt describing the image to generate"),
+      negative_prompt: z
+        .string()
+        .max(5000)
+        .optional()
+        .describe("What to discourage in the generated image"),
+      aspect_ratio: z
+        .enum(["1:1", "16:9", "9:16", "3:4", "4:3"])
+        .default("1:1")
+        .describe("Aspect ratio of the generated image"),
+      seed: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("Random seed for reproducible generation"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      const input: Record<string, unknown> = { prompt: params.prompt };
+      if (params.negative_prompt) input.negative_prompt = params.negative_prompt;
+      if (params.aspect_ratio) input.aspect_ratio = params.aspect_ratio;
+      if (params.seed) input.seed = params.seed;
+      return input;
+    },
+  },
+
+  // --- Google Imagen 4 Ultra ---
+  google_imagen4_ultra: {
+    name: "google_imagen4_ultra",
+    description:
+      "Generate images using Google Imagen 4 Ultra. Premium quality text-to-image generation with negative prompts and seed support. Uses standard task endpoint.",
+    model: "google/imagen4-ultra",
+    schema: {
+      prompt: z
+        .string()
+        .max(5000)
+        .describe("Text prompt describing the image to generate"),
+      negative_prompt: z
+        .string()
+        .max(5000)
+        .optional()
+        .describe("What to discourage in the generated image"),
+      aspect_ratio: z
+        .enum(["1:1", "16:9", "9:16", "3:4", "4:3"])
+        .default("1:1")
+        .describe("Aspect ratio of the generated image"),
+      seed: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("Random seed for reproducible generation"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      const input: Record<string, unknown> = { prompt: params.prompt };
+      if (params.negative_prompt) input.negative_prompt = params.negative_prompt;
+      if (params.aspect_ratio) input.aspect_ratio = params.aspect_ratio;
+      if (params.seed) input.seed = params.seed;
+      return input;
+    },
+  },
+
   // --- Ideogram V3 Text-to-Image ---
   ideogram_v3_generate: {
     name: "ideogram_v3_generate",
@@ -72,7 +220,7 @@ export const imageTools = {
     schema: {
       prompt: z
         .string()
-        .min(1)
+        .max(5000)
         .describe("Description of the image to generate"),
       rendering_speed: z
         .enum(["TURBO", "BALANCED", "QUALITY"])
@@ -80,8 +228,8 @@ export const imageTools = {
         .describe("Rendering speed: TURBO (fast), BALANCED (default), QUALITY (best)"),
       style: z
         .enum(["AUTO", "GENERAL", "REALISTIC", "DESIGN"])
-        .default("AUTO")
-        .describe("Style type"),
+        .optional()
+        .describe("Style type. Cannot be used together with style_code"),
       expand_prompt: z
         .boolean()
         .default(true)
@@ -93,11 +241,12 @@ export const imageTools = {
         ])
         .default("square_hd")
         .describe("Output image resolution/aspect"),
-      seed: z.number().optional().describe("Seed for reproducible results"),
+      seed: z.number().int().optional().describe("Seed for the random number generator"),
       negative_prompt: z
         .string()
+        .max(5000)
         .optional()
-        .describe("What to exclude from the image"),
+        .describe("What to exclude from the image. Positive prompt takes precedence if conflicting"),
     },
     buildInput(params: Record<string, unknown>) {
       return { ...params };
@@ -111,9 +260,9 @@ export const imageTools = {
       "Edit images using Ideogram V3 with mask-based inpainting. Modify specific regions while keeping the rest unchanged. Great for background replacement, object editing, and detail adjustments.",
     model: "ideogram/v3-edit",
     schema: {
-      prompt: z.string().min(1).describe("Prompt to fill the masked area"),
-      image_url: z.string().url().describe("Source image URL (must match mask dimensions)"),
-      mask_url: z.string().url().describe("Mask image URL (black=modify, white=preserve)"),
+      prompt: z.string().max(5000).describe("Prompt to fill the masked area"),
+      image_url: z.string().url().describe("Source image URL. Must match mask dimensions (jpeg/png/webp, max 10MB)"),
+      mask_url: z.string().url().describe("Mask image URL for inpainting. Must match source image dimensions (jpeg/png/webp, max 10MB)"),
       rendering_speed: z
         .enum(["TURBO", "BALANCED", "QUALITY"])
         .default("BALANCED")
@@ -122,7 +271,7 @@ export const imageTools = {
         .boolean()
         .default(true)
         .describe("Use MagicPrompt enhancement"),
-      seed: z.number().optional().describe("Seed for reproducible results"),
+      seed: z.number().int().optional().describe("Seed for the random number generator"),
     },
     buildInput(params: Record<string, unknown>) {
       return { ...params };
@@ -136,16 +285,16 @@ export const imageTools = {
       "Remix images using Ideogram V3. Transform an existing image with a new prompt while controlling how much of the original is preserved via strength parameter. Great for style transfers and creative variations.",
     model: "ideogram/v3-remix",
     schema: {
-      prompt: z.string().min(1).describe("Prompt to remix the image with"),
-      image_url: z.string().url().describe("Source image URL to remix"),
+      prompt: z.string().max(5000).describe("Prompt to remix the image with"),
+      image_url: z.string().url().describe("Source image URL to remix (jpeg/png/webp, max 10MB)"),
       rendering_speed: z
         .enum(["TURBO", "BALANCED", "QUALITY"])
         .default("BALANCED")
         .describe("Rendering speed"),
       style: z
         .enum(["AUTO", "GENERAL", "REALISTIC", "DESIGN"])
-        .default("AUTO")
-        .describe("Style type"),
+        .optional()
+        .describe("Style type. Cannot be used together with style_code"),
       expand_prompt: z
         .boolean()
         .default(true)
@@ -161,17 +310,18 @@ export const imageTools = {
         .enum(["1", "2", "3", "4"])
         .default("1")
         .describe("Number of images to generate"),
-      seed: z.number().optional().describe("Seed for reproducible results"),
+      seed: z.number().int().optional().describe("Seed for the random number generator"),
       strength: z
         .number()
-        .min(0)
+        .min(0.01)
         .max(1)
         .optional()
-        .describe("How much original image is preserved (0=full change, 1=minimal change)"),
+        .describe("Strength of the input image in the remix (0.01-1)"),
       negative_prompt: z
         .string()
+        .max(5000)
         .optional()
-        .describe("What to exclude from the image"),
+        .describe("What to exclude from the image. Positive prompt takes precedence if conflicting"),
     },
     buildInput(params: Record<string, unknown>) {
       return { ...params };
@@ -185,83 +335,29 @@ export const imageTools = {
       "Reframe images to different aspect ratios using Ideogram V3. Extends content via intelligent outpainting while preserving the subject. Ideal for adapting images across social media formats.",
     model: "ideogram/v3-reframe",
     schema: {
-      image_url: z.string().url().describe("Source image URL to reframe"),
+      image_url: z.string().url().describe("Source image URL to reframe (jpeg/png/webp, max 10MB)"),
       image_size: z
         .enum([
           "square", "square_hd", "portrait_4_3", "portrait_16_9",
           "landscape_4_3", "landscape_16_9",
         ])
-        .default("square_hd")
-        .describe("Target size/aspect"),
-      num_images: z
-        .enum(["1", "2", "3", "4"])
-        .default("1")
-        .describe("Number of images"),
+        .describe("Target resolution/aspect for the reframed output"),
       rendering_speed: z
         .enum(["TURBO", "BALANCED", "QUALITY"])
         .default("BALANCED")
         .describe("Rendering speed"),
       style: z
         .enum(["AUTO", "GENERAL", "REALISTIC", "DESIGN"])
-        .default("AUTO")
-        .describe("Style type"),
-      seed: z.number().optional().describe("Seed for reproducible results"),
+        .optional()
+        .describe("Style type. Cannot be used together with style_code"),
+      num_images: z
+        .enum(["1", "2", "3", "4"])
+        .default("1")
+        .describe("Number of images to generate"),
+      seed: z.number().int().optional().describe("Seed for the random number generator"),
     },
     buildInput(params: Record<string, unknown>) {
       return { ...params };
-    },
-  },
-
-  // --- Flux Kontext ---
-  flux_kontext_image: {
-    name: "flux_kontext_image",
-    description:
-      "Generate or edit images using Flux Kontext Pro/Max. Consistent style, accurate text rendering, and strong editing capabilities.",
-    model: "flux-kontext-pro",
-    schema: {
-      prompt: z
-        .string()
-        .max(5000)
-        .describe("Text prompt for generation or editing"),
-      model: z
-        .enum(["flux-kontext-pro", "flux-kontext-max"])
-        .default("flux-kontext-pro")
-        .describe("Model variant"),
-      aspectRatio: z
-        .enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"])
-        .default("16:9")
-        .describe("Output aspect ratio"),
-      inputImage: z
-        .string()
-        .url()
-        .optional()
-        .describe("Input image URL for editing mode"),
-      outputFormat: z
-        .enum(["jpeg", "png"])
-        .default("jpeg")
-        .describe("Output format"),
-      promptUpsampling: z
-        .boolean()
-        .default(false)
-        .describe("Enable prompt enhancement"),
-      safetyTolerance: z
-        .number()
-        .min(0)
-        .max(6)
-        .default(2)
-        .describe("Content moderation level (0-6)"),
-      enableTranslation: z
-        .boolean()
-        .default(true)
-        .describe("Auto-translate to English"),
-    },
-    buildInput(params: Record<string, unknown>) {
-      const model = params.model || "flux-kontext-pro";
-      delete params.model;
-      return params;
-    },
-    getModel(params: Record<string, unknown>) {
-      return (params.model as string) || "flux-kontext-pro";
     },
   },
 
@@ -373,240 +469,51 @@ export const imageTools = {
   openai_4o_image: {
     name: "openai_4o_image",
     description:
-      "Generate and edit images using OpenAI GPT-4o. Text-to-image, image editing with masks, and image variants.",
-    model: "gpt-image/text-to-image",
+      "Generate and edit images using OpenAI GPT-4o. Text-to-image, image editing with masks. Uses dedicated /gpt4o-image endpoint. Use get_task_status with source='gpt4o' to check results.",
+    model: "gpt4o-image",
+    isGpt4o: true,
     schema: {
-      prompt: z.string().max(5000).optional().describe("Text prompt"),
+      prompt: z.string().describe("Text prompt for image generation or editing"),
       size: z
         .enum(["1:1", "3:2", "2:3"])
         .default("1:1")
         .describe("Aspect ratio"),
       filesUrl: z
         .array(z.string().url())
-        .max(5)
         .optional()
-        .describe("Image URLs for editing or variants"),
+        .describe("Image URLs for editing or reference"),
       maskUrl: z
         .string()
         .url()
         .optional()
-        .describe("Mask image URL for precise editing"),
-      nVariants: z
-        .enum(["1", "2", "4"])
-        .default("4")
-        .describe("Number of variations"),
-      enableFallback: z
-        .boolean()
-        .default(true)
-        .describe("Enable fallback to backup models"),
-      fallbackModel: z
-        .enum(["GPT_IMAGE_1", "FLUX_MAX"])
-        .default("FLUX_MAX")
-        .describe("Backup model"),
+        .describe("Mask image URL — white areas are preserved, black areas are modified"),
       isEnhance: z
         .boolean()
         .default(false)
-        .describe("Enable prompt enhancement"),
-    },
-    buildInput(params: Record<string, unknown>) {
-      return { ...params };
-    },
-  },
-
-  // --- Qwen Image ---
-  qwen_image: {
-    name: "qwen_image",
-    description:
-      "Generate and edit images using Qwen models. Text-to-image and image editing with bilingual prompt support.",
-    model: "qwen-image/text-to-image",
-    schema: {
-      prompt: z.string().describe("Text prompt"),
-      image_size: z
-        .enum([
-          "square", "square_hd", "portrait_4_3", "portrait_16_9",
-          "landscape_4_3", "landscape_16_9",
-        ])
-        .default("square_hd")
-        .describe("Image size"),
-      image_url: z
-        .string()
-        .url()
-        .optional()
-        .describe("Image URL for editing mode"),
-      negative_prompt: z
-        .string()
-        .max(500)
-        .optional()
-        .describe("Negative prompt"),
-      guidance_scale: z
-        .number()
-        .min(0)
-        .max(20)
-        .default(2.5)
-        .describe("CFG scale"),
-      num_inference_steps: z
-        .number()
-        .min(2)
-        .max(250)
-        .default(30)
-        .describe("Inference steps"),
-      output_format: z
-        .enum(["png", "jpeg"])
-        .default("png")
-        .describe("Output format"),
-      num_images: z
-        .enum(["1", "2", "3", "4"])
-        .optional()
-        .describe("Number of images (edit mode only)"),
-      seed: z.number().optional().describe("Random seed"),
-    },
-    buildInput(params: Record<string, unknown>) {
-      return { ...params };
-    },
-    getModel(params: Record<string, unknown>) {
-      return params.image_url
-        ? "qwen-image/image-to-image"
-        : "qwen-image/text-to-image";
-    },
-  },
-
-  // --- Z-Image ---
-  z_image: {
-    name: "z_image",
-    description:
-      "Generate photorealistic images using Z-Image. Ultra-fast Turbo, accurate bilingual text rendering (Chinese/English). ~$0.004/image.",
-    model: "z-image/z-image",
-    schema: {
-      prompt: z.string().max(5000).describe("Text prompt (supports bilingual)"),
-      aspect_ratio: z
-        .enum(["1:1", "4:3", "3:4", "16:9", "9:16"])
-        .default("1:1")
-        .describe("Aspect ratio"),
-    },
-    buildInput(params: Record<string, unknown>) {
-      return { ...params };
-    },
-  },
-
-  // --- Grok Imagine ---
-  grok_imagine: {
-    name: "grok_imagine",
-    description:
-      "Generate images and videos using xAI's Grok Imagine. 4 modes: text-to-image, text-to-video, image-to-video, upscale. ~$0.10 per 6-second video.",
-    model: "grok-imagine/text-to-image",
-    schema: {
-      prompt: z.string().max(5000).optional().describe("Text prompt"),
-      aspect_ratio: z
-        .enum(["2:3", "3:2", "1:1"])
-        .default("1:1")
-        .describe("Aspect ratio"),
-      generation_mode: z
-        .enum(["text-to-image", "text-to-video", "image-to-video", "upscale"])
-        .optional()
-        .describe("Mode (auto-detected if not set)"),
-      mode: z
-        .enum(["fun", "normal", "spicy"])
-        .default("normal")
-        .describe("Generation style"),
-      image_urls: z
-        .array(z.string().url())
-        .max(1)
-        .optional()
-        .describe("Image URL for image-to-video"),
-      task_id: z
-        .string()
-        .optional()
-        .describe("Previous task ID for upscale/video from generated image"),
-      index: z
-        .number()
-        .min(0)
-        .max(5)
-        .optional()
-        .describe("Image index from task (Grok generates 6 per task)"),
-    },
-    buildInput(params: Record<string, unknown>) {
-      return { ...params };
-    },
-    getModel(params: Record<string, unknown>) {
-      const mode =
-        (params.generation_mode as string) ||
-        (params.image_urls ? "image-to-video" : "text-to-image");
-      return `grok-imagine/${mode}`;
-    },
-  },
-
-  // --- Midjourney ---
-  midjourney_generate: {
-    name: "midjourney_generate",
-    description:
-      "Generate images and videos using Midjourney AI (v7, v6.1, v6, niji6). Text-to-image, image-to-image, style reference, omni reference, and video.",
-    model: "midjourney/mj_txt2img",
-    schema: {
-      prompt: z.string().max(2000).describe("Text prompt"),
-      version: z
-        .enum(["7", "6.1", "6", "5.2", "5.1", "niji6"])
-        .default("7")
-        .describe("Midjourney model version"),
-      aspectRatio: z
-        .enum([
-          "1:2", "9:16", "2:3", "3:4", "5:6", "6:5", "4:3", "3:2", "1:1",
-          "16:9", "2:1",
-        ])
-        .default("16:9")
-        .describe("Aspect ratio"),
-      taskType: z
-        .enum([
-          "mj_txt2img", "mj_img2img", "mj_style_reference",
-          "mj_omni_reference", "mj_video", "mj_video_hd",
-        ])
-        .optional()
-        .describe("Task type (auto-detected if not set)"),
-      speed: z
-        .enum(["relaxed", "fast", "turbo"])
-        .optional()
-        .describe("Generation speed"),
-      fileUrls: z
-        .array(z.string().url())
-        .max(10)
-        .optional()
-        .describe("Image URLs for img2img/video/style reference"),
-      stylization: z
-        .number()
-        .min(0)
-        .max(1000)
-        .optional()
-        .describe("Artistic style intensity"),
-      variety: z
-        .number()
-        .min(0)
-        .max(100)
-        .optional()
-        .describe("Diversity of results"),
-      weirdness: z
-        .number()
-        .min(0)
-        .max(3000)
-        .optional()
-        .describe("Creativity level"),
-      enableTranslation: z
+        .describe("Enable prompt enhancement for more refined outputs (e.g. 3D renders)"),
+      uploadCn: z
         .boolean()
         .default(false)
-        .describe("Auto-translate to English"),
-      motion: z
-        .enum(["high", "low"])
-        .default("high")
-        .describe("Motion level for video"),
-      videoBatchSize: z
-        .enum(["1", "2", "4"])
-        .default("1")
-        .describe("Number of videos"),
-      high_definition_video: z
+        .describe("Route uploads via China servers (true) or non-China servers (false)"),
+      enableFallback: z
         .boolean()
         .default(false)
-        .describe("HD video generation"),
+        .describe("Activate automatic fallback to backup model if GPT-4o is unavailable"),
+      fallbackModel: z
+        .enum(["GPT_IMAGE_1", "FLUX_MAX"])
+        .default("FLUX_MAX")
+        .describe("Backup model when enableFallback is true"),
     },
     buildInput(params: Record<string, unknown>) {
-      return { ...params };
+      const input: Record<string, unknown> = { prompt: params.prompt };
+      if (params.size) input.size = params.size;
+      if (params.filesUrl) input.filesUrl = params.filesUrl;
+      if (params.maskUrl) input.maskUrl = params.maskUrl;
+      if (params.isEnhance !== undefined) input.isEnhance = params.isEnhance;
+      if (params.uploadCn !== undefined) input.uploadCn = params.uploadCn;
+      if (params.enableFallback !== undefined) input.enableFallback = params.enableFallback;
+      if (params.fallbackModel) input.fallbackModel = params.fallbackModel;
+      return input;
     },
   },
 
@@ -638,6 +545,20 @@ export const imageTools = {
     },
     buildInput(params: Record<string, unknown>) {
       return { ...params };
+    },
+  },
+
+  // --- Recraft Crisp Upscale ---
+  recraft_crisp_upscale: {
+    name: "recraft_crisp_upscale",
+    description:
+      "Upscale images using Recraft Crisp Upscale. Enhances image resolution with crisp detail preservation.",
+    model: "recraft/crisp-upscale",
+    schema: {
+      image: z.string().url().describe("Image URL to upscale (jpeg/png/webp, max 10MB)"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      return { image: params.image };
     },
   },
 };
@@ -1030,6 +951,10 @@ export const utilityTools = {
       "Check the status of a generation task. Returns status, results, and polling guidance.",
     schema: {
       task_id: z.string().describe("Task ID to check"),
+      source: z
+        .enum(["auto", "common", "gpt4o"])
+        .default("auto")
+        .describe("Which API endpoint to query. Use 'auto' to detect from task ID format, or specify explicitly for GPT-4o and other dedicated endpoints."),
     },
   },
 

@@ -121,6 +121,40 @@ export async function waitForTask(
   throw new Error(`Task ${taskId} timed out after ${maxWaitMs}ms`);
 }
 
+// GPT-4o Image-specific endpoints
+export async function gpt4oImageGenerate(
+  input: Record<string, unknown>
+): Promise<CreateTaskResponse> {
+  const res = await fetch(`${BASE_URL}/gpt4o-image/generate`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Kie.ai GPT-4o Image API error ${res.status}: ${text}`);
+  }
+
+  return res.json() as Promise<CreateTaskResponse>;
+}
+
+export async function gpt4oImageGetStatus(
+  taskId: string
+): Promise<TaskStatusResponse> {
+  const res = await fetch(
+    `${BASE_URL}/gpt4o-image/record-info?taskId=${encodeURIComponent(taskId)}`,
+    { headers: headers() }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Kie.ai GPT-4o Image API error ${res.status}: ${text}`);
+  }
+
+  return res.json() as Promise<TaskStatusResponse>;
+}
+
 // Runway-specific endpoints
 export async function runwayGenerate(
   input: Record<string, unknown>

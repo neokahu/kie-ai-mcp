@@ -2,7 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createTask, getTaskStatus, getCredit, waitForTask, runwayGenerate } from "./api.js";
+import { createTask, getTaskStatus, getCredit, waitForTask, runwayGenerate, gpt4oImageGenerate, gpt4oImageGetStatus } from "./api.js";
 import { imageTools, videoTools, audioTools, utilityTools, z } from "./tools.js";
 
 const server = new McpServer({
@@ -37,13 +37,26 @@ function formatTaskCreated(taskId: string, model: string): string {
 }
 
 function formatTaskStatus(data: Record<string, unknown>): string {
+  // Normalize: dedicated endpoints use successFlag (0=generating, 1=success, 2/3=fail)
+  // Common endpoint uses state ("waiting"|"queuing"|"generating"|"success"|"fail")
+  let state: string;
+  if (data.state) {
+    state = data.state as string;
+  } else if (data.successFlag !== undefined) {
+    const flag = data.successFlag as number;
+    state = flag === 1 ? "success" : flag === 0 ? "generating" : "fail";
+  } else {
+    state = "unknown";
+  }
+
   const result: Record<string, unknown> = {
     taskId: data.taskId,
-    model: data.model,
-    state: data.state,
+    model: data.model || data.taskType,
+    state,
   };
 
-  if (data.state === "success" && data.resultJson) {
+  // Handle common endpoint success (resultJson string)
+  if (state === "success" && data.resultJson) {
     try {
       const parsed = JSON.parse(data.resultJson as string);
       result.result_urls = parsed.resultUrls || parsed.result_urls;
@@ -53,9 +66,43 @@ function formatTaskStatus(data: Record<string, unknown>): string {
     }
   }
 
-  if (data.state === "fail") {
-    result.error_code = data.failCode;
-    result.error_message = data.failMsg;
+  // Handle dedicated endpoint success (response object or resultInfoJson)
+  if (state === "success" && data.response) {
+    const resp = data.response as Record<string, unknown>;
+    // GPT-4o returns resultUrls (array), others return resultImageUrl (string)
+    if (Array.isArray(resp.resultUrls)) {
+      result.result_urls = resp.resultUrls;
+    } else {
+      result.result_urls = [resp.resultImageUrl].filter(Boolean);
+    }
+    result.result = resp;
+  }
+  if (state === "success" && data.resultInfoJson) {
+    // resultInfoJson may be a string or already-parsed object depending on endpoint
+    let parsed: Record<string, unknown>;
+    if (typeof data.resultInfoJson === "string") {
+      try {
+        parsed = JSON.parse(data.resultInfoJson as string);
+      } catch {
+        result.resultInfoJson = data.resultInfoJson;
+        parsed = {};
+      }
+    } else {
+      parsed = data.resultInfoJson as Record<string, unknown>;
+    }
+    if (parsed.resultUrls) {
+      // MJ format: resultUrls is array of {resultUrl: string}
+      const urls = parsed.resultUrls as Array<Record<string, string>>;
+      result.result_urls = urls.map((u) => u.resultUrl || u);
+    } else {
+      result.result_urls = parsed.imageUrls || parsed.result_urls;
+    }
+    result.result = parsed;
+  }
+
+  if (state === "fail") {
+    result.error_code = data.failCode || data.errorCode;
+    result.error_message = data.failMsg || data.errorMessage;
   }
 
   if (data.progress !== undefined && data.progress !== null) {
@@ -65,7 +112,7 @@ function formatTaskStatus(data: Record<string, unknown>): string {
   if (data.costTime) result.cost_time_ms = data.costTime;
 
   // Polling guidance based on state
-  if (data.state === "waiting" || data.state === "queuing" || data.state === "generating") {
+  if (state === "waiting" || state === "queuing" || state === "generating") {
     result.polling_guidance = {
       status: "in_progress",
       next_check: "3-5 seconds",
@@ -88,6 +135,7 @@ type ToolDef = {
   buildInput: (params: Record<string, unknown>) => Record<string, unknown>;
   getModel?: (params: Record<string, unknown>) => string;
   isRunway?: boolean;
+  isGpt4o?: boolean;
 };
 
 const allGenerationTools: ToolDef[] = [
@@ -123,6 +171,9 @@ for (const tool of allGenerationTools) {
       let response;
       if (tool.isRunway) {
         response = await runwayGenerate(input);
+      } else if (tool.isGpt4o) {
+        if (cbUrl) (input as Record<string, unknown>).callBackUrl = cbUrl;
+        response = await gpt4oImageGenerate(input);
       } else {
         response = await createTask(model, input, cbUrl);
       }
@@ -171,7 +222,16 @@ server.tool(
   utilityTools.get_task_status.schema,
   async (params) => {
     try {
-      const response = await getTaskStatus(params.task_id);
+      const taskId = params.task_id;
+      const source = (params.source as string) || "auto";
+
+      // Route to correct status endpoint
+      let response;
+      if (source === "gpt4o") {
+        response = await gpt4oImageGetStatus(taskId);
+      } else {
+        response = await getTaskStatus(taskId);
+      }
 
       if (response.code !== 200) {
         return {
