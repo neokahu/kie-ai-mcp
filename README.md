@@ -90,7 +90,6 @@ All generation tools are async — they return a `taskId` immediately. Use `get_
 | `ideogram_v3_reframe` | Image | Ideogram V3 aspect ratio adaptation |
 | `flux_kontext_image` | Image | Flux Kontext Pro/Max |
 | `flux2_image` | Image | Flux 2 Pro/Flex |
-| `bytedance_seedream_image` | Image | Seedream V4/V5 Lite |
 | `openai_4o_image` | Image | GPT-4o image generation |
 | `qwen_image` | Image | Qwen image generation |
 | `z_image` | Image | Z-Image ultra-fast |
@@ -104,6 +103,8 @@ All generation tools are async — they return a `taskId` immediately. Use `get_
 | `hailuo_video` | Video | Hailuo standard/pro |
 | `sora_video` | Video | Sora 2 / Sora 2 Pro |
 | `veo3_generate_video` | Video | Google Veo3 |
+| `wan_image` | Image | Wan 2.7 Image |
+| `wan_image_pro` | Image | Wan 2.7 Image Pro |
 | `wan_video` | Video | Wan text/image/video |
 | `wan_animate` | Video | Wan animate images |
 | `runway_aleph_video` | Video | Runway Aleph |

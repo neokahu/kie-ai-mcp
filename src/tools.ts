@@ -168,11 +168,12 @@ export const imageTools = {
         .describe("Random seed for reproducible generation"),
     },
     buildInput(params: Record<string, unknown>) {
-      const input: Record<string, unknown> = { prompt: params.prompt };
-      if (params.negative_prompt) input.negative_prompt = params.negative_prompt;
-      if (params.aspect_ratio) input.aspect_ratio = params.aspect_ratio;
-      if (params.seed) input.seed = params.seed;
-      return input;
+      return {
+        prompt: params.prompt,
+        negative_prompt: (params.negative_prompt as string) || "",
+        aspect_ratio: (params.aspect_ratio as string) || "1:1",
+        seed: (params.seed as string) || "",
+      };
     },
   },
 
@@ -203,11 +204,12 @@ export const imageTools = {
         .describe("Random seed for reproducible generation"),
     },
     buildInput(params: Record<string, unknown>) {
-      const input: Record<string, unknown> = { prompt: params.prompt };
-      if (params.negative_prompt) input.negative_prompt = params.negative_prompt;
-      if (params.aspect_ratio) input.aspect_ratio = params.aspect_ratio;
-      if (params.seed) input.seed = params.seed;
-      return input;
+      return {
+        prompt: params.prompt,
+        negative_prompt: (params.negative_prompt as string) || "",
+        aspect_ratio: (params.aspect_ratio as string) || "1:1",
+        seed: (params.seed as string) || "",
+      };
     },
   },
 
@@ -400,68 +402,6 @@ export const imageTools = {
       const type = (params.model_type as string) || "pro";
       const hasInput = params.input_urls && (params.input_urls as string[]).length > 0;
       return `flux-2/${type}-${hasInput ? "image-to-image" : "text-to-image"}`;
-    },
-  },
-
-  // --- Seedream (ByteDance) ---
-  bytedance_seedream_image: {
-    name: "bytedance_seedream_image",
-    description:
-      "Generate and edit images using ByteDance Seedream V4/V5 Lite. Enhanced detail fidelity, multi-image fusion, and clear text rendering.",
-    model: "seedream-v4-text-to-image",
-    schema: {
-      prompt: z.string().max(5000).describe("Text prompt"),
-      version: z
-        .enum(["4", "5-lite"])
-        .default("5-lite")
-        .describe("Seedream version"),
-      image_size: z
-        .enum([
-          "square", "square_hd", "portrait_4_3", "portrait_3_2",
-          "portrait_16_9", "landscape_4_3", "landscape_3_2",
-          "landscape_16_9", "landscape_21_9",
-        ])
-        .default("square_hd")
-        .describe("Image aspect (V4 only)"),
-      aspect_ratio: z
-        .enum(["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "3:2", "21:9"])
-        .default("1:1")
-        .describe("Aspect ratio (V5 Lite only)"),
-      image_resolution: z
-        .enum(["1K", "2K", "4K"])
-        .default("1K")
-        .describe("Resolution (V4 only)"),
-      quality: z
-        .enum(["basic", "high"])
-        .default("basic")
-        .describe("V5 Lite quality: basic=2K, high=3K"),
-      max_images: z
-        .number()
-        .min(1)
-        .max(6)
-        .default(1)
-        .describe("Number of images (V4 only)"),
-      image_urls: z
-        .array(z.string().url())
-        .max(14)
-        .optional()
-        .describe("Image URLs for editing mode"),
-      seed: z.number().default(-1).describe("Random seed (-1 for random)"),
-    },
-    buildInput(params: Record<string, unknown>) {
-      return { ...params };
-    },
-    getModel(params: Record<string, unknown>) {
-      const version = params.version || "5-lite";
-      const hasImages =
-        params.image_urls && (params.image_urls as string[]).length > 0;
-      if (version === "5-lite") {
-        // V5 Lite model identifiers — adjust based on actual API
-        return hasImages
-          ? "seedream-v4.5-edit"
-          : "seedream-v4.5-text-to-image";
-      }
-      return hasImages ? "seedream-v4-edit" : "seedream-v4-text-to-image";
     },
   },
 
@@ -764,6 +704,145 @@ export const videoTools = {
         .max(99999)
         .optional()
         .describe("Random seed"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      return { ...params };
+    },
+  },
+
+  // --- Wan 2.7 Image ---
+  wan_image: {
+    name: "wan_image",
+    description:
+      "Generate and edit images using Wan 2.7 Image. Text-to-image with optional image input for editing. Supports thinking mode, sequential/group mode, custom color palettes with ratios, and interactive bbox editing.",
+    model: "wan/2-7-image",
+    schema: {
+      prompt: z.string().max(5000).describe("Text prompt for image generation or editing"),
+      input_urls: z
+        .array(z.string().url())
+        .max(9)
+        .optional()
+        .describe("Input image URLs for editing mode"),
+      aspect_ratio: z
+        .enum(["1:1", "16:9", "4:3", "21:9", "3:4", "9:16", "8:1", "1:8"])
+        .default("1:1")
+        .optional()
+        .describe("Output aspect ratio (text-to-image only, hidden when input_urls is provided)"),
+      n: z
+        .number()
+        .min(1)
+        .max(12)
+        .default(4)
+        .optional()
+        .describe("Number of images: 1-4 (standard), 1-12 (sequential mode)"),
+      enable_sequential: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe("Enable sequential/group image mode"),
+      resolution: z
+        .enum(["1K", "2K", "4K"])
+        .default("2K")
+        .optional()
+        .describe("Output resolution (4K only for text-to-image standard mode)"),
+      thinking_mode: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe("Enable thinking mode (only when sequential=false and no input_urls)"),
+      color_palette: z
+        .array(z.object({
+          hex: z.string().describe("Hex color value"),
+          ratio: z.string().describe("Color ratio/weight"),
+        }))
+        .min(3)
+        .max(10)
+        .optional()
+        .describe("Custom color theme (3-10 colors, 8 recommended, only when sequential=false)"),
+      bbox_list: z
+        .array(z.array(z.array(z.number())))
+        .optional()
+        .describe("Interactive editing bounding boxes. Outer list matches input_urls; inner arrays are boxes [x1,y1,x2,y2]; max 2 boxes per image"),
+      watermark: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe("Add watermark"),
+      seed: z
+        .number()
+        .min(0)
+        .max(2147483647)
+        .default(0)
+        .optional()
+        .describe("Random seed (0 for random)"),
+    },
+    buildInput(params: Record<string, unknown>) {
+      return { ...params };
+    },
+  },
+
+  // --- Wan 2.7 Image Pro ---
+  wan_image_pro: {
+    name: "wan_image_pro",
+    description:
+      "Generate and edit images using Wan 2.7 Image Pro. Higher quality variant. Text-to-image with optional image input for editing. Supports thinking mode, sequential/group mode, custom color palettes, and interactive bbox editing.",
+    model: "wan/2-7-image-pro",
+    schema: {
+      prompt: z.string().max(5000).describe("Text prompt for image generation or editing"),
+      input_urls: z
+        .array(z.string().url())
+        .max(9)
+        .optional()
+        .describe("Input image URLs for editing mode"),
+      aspect_ratio: z
+        .enum(["1:1", "16:9", "4:3", "21:9", "3:4", "9:16", "8:1", "1:8"])
+        .default("1:1")
+        .optional()
+        .describe("Output aspect ratio (text-to-image only, hidden when input_urls is provided)"),
+      n: z
+        .number()
+        .min(1)
+        .max(12)
+        .default(4)
+        .optional()
+        .describe("Number of images: 1-4 (standard), 1-12 (sequential mode)"),
+      enable_sequential: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe("Enable sequential/group image mode"),
+      resolution: z
+        .enum(["1K", "2K", "4K"])
+        .default("2K")
+        .optional()
+        .describe("Output resolution (4K only for text-to-image standard mode)"),
+      thinking_mode: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe("Enable thinking mode (only when sequential=false and no input_urls)"),
+      color_palette: z
+        .array(z.object({ color: z.string().describe("Hex color value") }))
+        .min(3)
+        .max(10)
+        .optional()
+        .describe("Custom color theme (3-10 colors, 8 recommended, only when sequential=false)"),
+      bbox_list: z
+        .array(z.array(z.number()))
+        .optional()
+        .describe("Interactive editing bounding boxes. Outer list matches input_urls; max 2 boxes per image; format [x1,y1,x2,y2]"),
+      watermark: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe("Add watermark"),
+      seed: z
+        .number()
+        .min(0)
+        .max(2147483647)
+        .default(0)
+        .optional()
+        .describe("Random seed (0 for random)"),
     },
     buildInput(params: Record<string, unknown>) {
       return { ...params };
